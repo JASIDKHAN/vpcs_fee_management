@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vidyavati Group of Institutions — Fee Management System</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+/* ===========  PREMIUM THEME (Retained from original) =========== */
+:root{
+  --navy:#0b1d3a; --navy-2:#13294b; --gold:#c9a24b; --gold-2:#b48a2f;
+  --bg:#f4f6fb; --card:#ffffff; --text:#1b2438; --muted:#64748b;
+  --line:#e5e9f2; --green:#16a34a; --red:#dc2626; --amber:#d97706;
+  --shadow:0 6px 24px rgba(11,29,58,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:'Segoe UI',-apple-system,Roboto,Helvetica,Arial,sans-serif;color:var(--text);background:var(--bg);font-size:14px}
+button{font-family:inherit;cursor:pointer;border:none}
+input,select,textarea{font-family:inherit;font-size:14px}
+
+/* ===========  LOGIN  =========== */
+#loginScreen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--navy) 0%,var(--navy-2) 100%);z-index:1000}
+.login-card{background:#fff;padding:42px 38px;border-radius:18px;width:420px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.login-brand{text-align:center;margin-bottom:28px}
+.login-brand .logo{width:110px;height:110px;border-radius:50%;background:#fff;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:30px;font-weight:bold;margin-bottom:14px;box-shadow:0 6px 16px rgba(201,162,75,.4);overflow:hidden;border:3px solid var(--gold)}
+.login-brand h1{font-size:20px;color:var(--navy);margin-bottom:6px}
+.login-brand p{font-size:12px;color:var(--muted);letter-spacing:1px;text-transform:uppercase}
+.login-card label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.login-card input{width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;margin-bottom:16px;transition:border .2s}
+.login-card input:focus{outline:none;border-color:var(--gold)}
+.btn-primary{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-2) 100%);color:#fff;padding:13px;width:100%;border-radius:10px;font-weight:600;letter-spacing:.5px;font-size:14px;transition:transform .15s}
+.login-hint{margin-top:18px;padding:12px;background:#f8fafc;border-radius:8px;font-size:11px;color:var(--muted);line-height:1.6}
+
+/* ===========  APP LAYOUT & COMPONENTS =========== */
+#app{display:none;height:100vh;grid-template-columns:240px 1fr;grid-template-rows:60px 1fr;grid-template-areas:"sidebar header" "sidebar main"}
+header.topbar{grid-area:header;background:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 28px;border-bottom:1px solid var(--line);box-shadow:0 1px 3px rgba(0,0,0,.03)}
+.user-chip{display:flex;align-items:center;gap:10px;font-size:13px}
+.user-chip .avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-2));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:bold}
+.user-chip .role-tag{font-size:10px;background:var(--navy);color:#fff;padding:2px 8px;border-radius:10px;text-transform:uppercase}
+.btn-logout{background:#fef2f2;color:var(--red);padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;margin-left:8px}
+
+aside.sidebar{grid-area:sidebar;background:linear-gradient(180deg,var(--navy) 0%,var(--navy-2) 100%);color:#fff;padding:18px 0 24px;overflow-y:auto}
+.brand{padding:0 22px 22px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:14px;display:flex;align-items:center;gap:12px}
+.brand .logo-sm{width:46px;height:46px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:16px;border:2px solid var(--gold);color:var(--navy)}
+.nav-item{padding:11px 22px;color:rgba(255,255,255,.75);font-size:13px;cursor:pointer;display:flex;align-items:center;gap:10px;border-left:3px solid transparent}
+.nav-item:hover{background:rgba(255,255,255,.06);color:#fff}
+.nav-item.active{background:rgba(201,162,75,.12);color:var(--gold);border-left-color:var(--gold)}
+.nav-section{padding:14px 22px 6px;font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:1.5px}
+
+main.content{grid-area:main;padding:24px 28px;overflow-y:auto}
+.page{display:none} .page.active{display:block}
+.page-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.page-header h1{font-size:22px;color:var(--navy)}
+.card{background:var(--card);border-radius:14px;padding:22px;box-shadow:var(--shadow);margin-bottom:20px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.form-group label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:600}
+.form-group input,.form-group select{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px}
+.btn{padding:10px 18px;border-radius:8px;font-weight:600;font-size:13px}
+.btn-navy{background:var(--navy);color:#fff} .btn-gold{background:var(--gold);color:#fff} .btn-ghost{background:#f1f5f9;color:var(--text)} .btn-danger{background:#fef2f2;color:var(--red)}
+
+.stat-tile{background:#fff;border-radius:14px;padding:18px;box-shadow:var(--shadow);border-left:4px solid var(--navy)}
+.tbl-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--line)}
+table.data-tbl{width:100%;border-collapse:collapse;background:#fff;font-size:13px}
+table.data-tbl th{background:#f8fafc;text-align:left;padding:11px 12px;font-weight:600;font-size:11px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--line)}
+table.data-tbl td{padding:11px 12px;border-bottom:1px solid var(--line)}
+
+#toast{position:fixed;top:20px;right:20px;z-index:2000;display:flex;flex-direction:column;gap:8px}
+.toast-item{background:#fff;padding:14px 20px;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.15);border-left:4px solid var(--navy);font-size:13px}
+.toast-item.error{border-left-color:var(--red)} .toast-item.success{border-left-color:var(--green)}
+.modal-overlay{position:fixed;inset:0;background:rgba(11,29,58,.6);display:none;align-items:center;justify-content:center;z-index:500;padding:20px}
+.modal-overlay.show{display:flex}
+.modal-box{background:#fff;border-radius:14px;padding:24px;max-width:600px;width:100%;max-height:90vh;overflow-y:auto}
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-brand"><div class="logo" id="loginLogo">V</div><h1>Vidyavati Group</h1><p>Fee Management System</p></div>
+    <form onsubmit="doLogin(event)">
+      <label>Email (or Username)</label><input id="loginUser" type="text" required>
+      <label>Password</label><input id="loginPass" type="password" required>
+      <button type="submit" class="btn-primary">SIGN IN</button>
+    </form>
+  </div>
+</div>
+
+<div id="app">
+  <aside class="sidebar">
+    <div class="brand"><div class="logo-sm">V</div><div class="brand-text"><div><b>Vidyavati Group</b></div></div></div>
+    <div class="nav-item active" data-page="dashboard">📊 Dashboard</div>
+    <div class="nav-section" data-roles="admin,fee_incharge,admission_incharge,staff">Masters</div>
+    <div class="nav-item" data-page="coursemaster" data-roles="admin">📚 Course Master</div>
+    <div class="nav-item" data-page="feemaster" data-roles="admin,fee_incharge">⚖️ Fee Master</div>
+    <div class="nav-item" data-page="allotment" data-roles="admin,admission_incharge,staff">📑 Allotment Upload</div>
+    <div class="nav-section" data-roles="admin,staff">Admissions</div>
+    <div class="nav-item" data-page="register" data-roles="admin,staff">👨‍🎓 Student Registration</div>
+    <div class="nav-item" data-page="students" data-roles="admin,staff">📋 All Students</div>
+    <div class="nav-item" data-page="fees" data-roles="admin,staff">💰 Fee Submission</div>
+    <div class="nav-item" data-page="receipts" data-roles="admin,staff">🧾 Receipts</div>
+  </aside>
+
+  <header class="topbar">
+    <h2 id="pageTitle">Dashboard</h2>
+    <div class="user-chip">
+      <div class="avatar" id="userAvatar">U</div>
+      <div><div id="userName" style="font-weight:600">User</div><span class="role-tag" id="userRole">staff</span></div>
+      <button class="btn-logout" onclick="logout()">Logout</button>
+    </div>
+  </header>
+
+  <main class="content">
+    <div class="page active" id="page-dashboard">
+      <div class="page-header"><h1>Dashboard</h1><p id="todayDate"></p></div>
+      <div class="grid-4">
+        <div class="stat-tile"><div class="label">Total Students</div><div class="value" id="statStudents">0</div></div>
+        <div class="stat-tile amber"><div class="label">Total Fee Fixed</div><div class="value" id="statFixed">₹0</div></div>
+        <div class="stat-tile gold"><div class="label">Total Fee Submitted</div><div class="value" id="statCollected">₹0</div></div>
+        <div class="stat-tile red"><div class="label">Total Due</div><div class="value" id="statDue">₹0</div></div>
+      </div>
+      <div class="card" style="margin-top:20px">
+        <h3>📚 Course-wise Summary</h3>
+        <div class="tbl-wrap">
+          <table class="data-tbl">
+            <thead><tr><th>Course</th><th>Students</th><th>Fee Fixed</th><th>Fee Submitted</th><th>Due Fee</th></tr></thead>
+            <tbody id="courseSummary"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    
+    <div class="page" id="page-register">
+      <div class="page-header"><h1>Student Registration</h1></div>
+      <div class="card">
+        <form id="regForm" onsubmit="registerStudent(event)">
+          <div class="grid-4">
+            <div class="form-group"><label>Course *</label><select id="regCourse" class="course-select" required></select></div>
+            <div class="form-group"><label>Year *</label><select id="regYear" required><option value="1st">1st Year</option><option value="2nd">2nd Year</option></select></div>
+            <div class="form-group"><label>Student Name *</label><input id="regName" required></div>
+            <div class="form-group"><label>Registration No *</label><input id="regAdmNo" required></div>
+          </div>
+          <div class="grid-4">
+            <div class="form-group"><label>Father's Name</label><input id="regFather"></div>
+            <div class="form-group"><label>Mobile</label><input id="regMobile"></div>
+            <div class="form-group"><label>Aadhaar</label><input id="regAadhaar"></div>
+            <div class="form-group"><label>Consultancy</label><input id="regConsult"></div>
+          </div>
+          <button type="submit" class="btn btn-navy">Register Student</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="page" id="page-fees">
+      <div class="page-header"><h1>Fee Submission</h1></div>
+      <div class="card">
+        <div class="grid-3">
+          <div class="form-group"><label>Course *</label><select id="feeCourse" class="course-select" onchange="updateFeeSearch()"></select></div>
+          <div class="form-group"><label>Year *</label><select id="feeYear" onchange="updateFeeSearch()"><option value="1st">1st Year</option><option value="2nd">2nd Year</option></select></div>
+          <div class="form-group"><label>Student Search</label><input id="feeSearch" oninput="searchStudents()"></div>
+        </div>
+        <div id="feeSearchResults" style="margin-top:10px;"></div>
+      </div>
+      <div id="feeStudentBlock" style="display:none" class="card">
+        <h3>Submit Fee for <span id="fsName"></span></h3>
+        <form id="feeSubmitForm" onsubmit="submitFee(event)">
+          <div class="grid-4">
+            <div class="form-group"><label>Mode</label><select id="feeMode"><option>Cash</option><option>Online</option><option>Cheque</option></select></div>
+            <div class="form-group"><label>Reference</label><input id="feeRef"></div>
+            <div class="form-group"><label>Remarks</label><input id="feeRemark"></div>
+          </div>
+          <table class="data-tbl" style="margin-top:15px">
+             <thead><tr><th>Head</th><th>Pay Now (₹)</th></tr></thead>
+             <tbody>
+               <tr><td>Year 1 Tuition</td><td><input id="payY1C" type="number" value="0"></td></tr>
+               <tr><td>Year 1 Exam</td><td><input id="payY1E" type="number" value="0"></td></tr>
+               <tr><td>Year 2 Tuition</td><td><input id="payY2C" type="number" value="0"></td></tr>
+               <tr><td>Year 2 Exam</td><td><input id="payY2E" type="number" value="0"></td></tr>
+               <tr><td>Transport</td><td><input id="payTr" type="number" value="0"></td></tr>
+               <tr><td>Other</td><td><input id="payOther" type="number" value="0"></td></tr>
+             </tbody>
+          </table>
+          <button type="submit" class="btn btn-gold" style="margin-top:15px">Submit & Generate Receipt</button>
+        </form>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="toast"></div>
+<div class="modal-overlay" id="modal"><div class="modal-box" id="modalBox"></div></div>
+
+<script>
+/* ===========  SUPABASE CONFIGURATION  =========== */
+// TODO: Replace with your actual Supabase project URL and Anon Key
+const supabaseUrl = 'https://gggzsmluqievgpixyjgb.supabase.co';          
+const supabaseKey = 'sb_publishable__ZU7TgDjS3qVO_65PpKp6Q_M6SeW5UP';     
+const sb = window.supabase.createClient(supabaseUrl, supabaseKey, {
+  auth: { persistSession: true, autoRefreshToken: true }
+});
+
+let currentUser = null;
+let DB = {};
+let selectedStudent = null;
+
+function fmt(n){return '₹'+Number(n||0).toLocaleString('en-IN');}
+function today(){return new Date().toISOString().slice(0,10);}
+function toast(msg,type='info'){
+  const t=document.createElement('div'); t.className='toast-item '+type; t.textContent=msg;
+  document.getElementById('toast').appendChild(t); setTimeout(()=>t.remove(),3500);
+}
+function sbCheck(error, msg){ if(error){ toast(msg || error.message, 'error'); throw error; } }
+
+/* ===========  AUTH  =========== */
+const toEmail = u => u.includes('@') ? u : `${u}@vidyavati.local`;
+
+async function doLogin(e){
+  e.preventDefault();
+  const u = document.getElementById('loginUser').value.trim();
+  const p = document.getElementById('loginPass').value;
+  const { data, error } = await sb.auth.signInWithPassword({ email: toEmail(u), password: p });
+  if (error) { toast('Invalid credentials', 'error'); return; }
+  await afterLogin(data.user);
+}
+
+async function afterLogin(authUser){
+  const { data: profile } = await sb.from('users').select('username, role, name').eq('id', authUser.id).single();
+  currentUser = { id: authUser.id, username: profile?.username || authUser.email, role: profile?.role || 'staff', name: profile?.name || authUser.email };
+  
+  await bootstrapState();
+  
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('app').style.display='grid';
+  document.getElementById('userName').textContent = currentUser.name;
+  document.getElementById('userRole').textContent = currentUser.role;
+  document.getElementById('userAvatar').textContent = currentUser.name.charAt(0).toUpperCase();
+  document.body.classList.toggle('is-chairman', currentUser.role === 'chairman');
+  
+  fillCourseSelects(); applyRoleAccess(); initApp();
+}
+
+async function logout(){
+  await sb.auth.signOut();
+  currentUser = null;
+  document.getElementById('app').style.display='none';
+  document.getElementById('loginScreen').style.display='flex';
+}
+
+window.addEventListener('DOMContentLoaded', async () => {
+  const { data:{ session } } = await sb.auth.getSession();
+  if (session?.user) { try { await afterLogin(session.user); } catch(_){ } }
+});
+
+/* ===========  DATA HYDRATION  =========== */
+async function bootstrapState(){
+  const [courses, fees, students, receipts, items] = await Promise.all([
+    sb.from('courses').select('course_name,duration_years,years_offered,min_total_fee,max_total_fee').eq('is_active',true).order('id'),
+    sb.from('fee_masters').select('year,tuition_fee,exam_fee,courses(course_name)'),
+    sb.from('students').select('*,courses(course_name)').order('id'),
+    sb.from('receipts').select('id,receipt_number,receipt_date,student_id,year,payment_mode,reference_no,remarks,total_amount,status,is_printed,created_role').order('receipt_number'),
+    sb.from('receipt_items').select('receipt_id,fee_head,amount_paid')
+  ]);
+  [courses,fees,students,receipts,items].forEach(r => sbCheck(r.error, 'Failed to load data'));
+
+  const feeStructure = {};
+  courses.data.forEach(c => feeStructure[c.course_name] = { y1Course:0,y1Exam:0,y2Course:0,y2Exam:0,otherFee:0 });
+  fees.data.forEach(f => { 
+    const cn=f.courses.course_name; 
+    feeStructure[cn] ||= {y1Course:0,y1Exam:0,y2Course:0,y2Exam:0,otherFee:0};
+    if(f.year==='1st'){feeStructure[cn].y1Course=+f.tuition_fee;feeStructure[cn].y1Exam=+f.exam_fee;}
+    else              {feeStructure[cn].y2Course=+f.tuition_fee;feeStructure[cn].y2Exam=+f.exam_fee;} 
+  });
+
+  const UI = {TUITION_Y1:'y1Course',EXAM_Y1:'y1Exam',TUITION_Y2:'y2Course',EXAM_Y2:'y2Exam',TRANSPORT:'transport',OTHER:'otherFee'};
+  const byR = {}; items.data.forEach(it => { (byR[it.receipt_id] ||= {})[UI[it.fee_head]] = +it.amount_paid; });
+
+  DB = {
+    courses: courses.data.map(c => ({ name:c.course_name, duration:c.duration_years+' Years', years:(c.years_offered||'1st,2nd').split(',') })),
+    feeStructure,
+    students: students.data.map(s => ({
+      id:String(s.id), admissionNo:s.registration_no, name:s.student_name, fatherName:s.father_name, mobile:s.mobile, 
+      course:s.courses.course_name, year:s.current_year,
+      customFees:{ y1Course:+s.tuition_y1, y1Exam:+s.exam_y1, y2Course:+s.tuition_y2, y2Exam:+s.exam_y2, transport:+s.transport_fee }
+    })),
+    receipts: receipts.data.map(r => ({
+      receiptNo:r.receipt_number, date:r.receipt_date, studentId:String(r.student_id), total:+r.total_amount, status:r.status,
+      heads: Object.assign({ y1Course:0,y1Exam:0,y2Course:0,y2Exam:0,transport:0,otherFee:0 }, byR[r.id] || {})
+    }))
+  };
+}
+
+async function refreshState(){
+  const active = document.querySelector('.nav-item.active')?.dataset.page;
+  await bootstrapState();
+  if (active) onPageOpen(active);
+}
+
+/* ===========  UI ROUTING & UTILS  =========== */
+function initApp(){
+  document.getElementById('todayDate').textContent=new Date().toLocaleDateString('en-IN');
+  renderDashboard();
+}
+
+function fillCourseSelects(){
+  const names = DB.courses.map(c=>c.name);
+  document.querySelectorAll('select.course-select').forEach(sel=>{
+    sel.innerHTML='<option value="">-- Select Course --</option>'+names.map(c=>`<option>${c}</option>`).join('');
+  });
+}
+
+function applyRoleAccess(){
+  const role=currentUser.role;
+  document.querySelectorAll('.nav-item').forEach(it=>{
+    const roles=it.dataset.roles;
+    if(!roles) return;
+    const allowed=roles.split(',').map(x=>x.trim());
+    it.style.display=(role==='chairman'||allowed.includes(role))?'':'none';
+  });
+}
+
+document.querySelectorAll('.nav-item').forEach(item=>{
+  item.addEventListener('click',()=>{
+    document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
+    item.classList.add('active');
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    const pg=item.dataset.page;
+    document.getElementById('page-'+pg).classList.add('active');
+    document.getElementById('pageTitle').textContent=item.textContent;
+    onPageOpen(pg);
+  });
+});
+
+function onPageOpen(pg){
+  if(pg==='dashboard') renderDashboard();
+}
+
+/* ===========  TRANSACTIONS (RPC CALLS)  =========== */
+async function registerStudent(e){
+  e.preventDefault();
+  const p = { 
+    mode:'manual', 
+    course: document.getElementById('regCourse').value, 
+    year: document.getElementById('regYear').value,
+    name: document.getElementById('regName').value,
+    reg_no: document.getElementById('regAdmNo').value,
+    father: document.getElementById('regFather').value,
+    mobile: document.getElementById('regMobile').value,
+    manual_reason: 'Standard Registration'
+  };
+  const { error } = await sb.rpc('register_student', { p });
+  if (error) { toast(error.message, 'error'); return; }
+  
+  toast('Registered successfully','success');
+  document.getElementById('regForm').reset();
+  await refreshState();
+}
+
+function searchStudents(){
+  const c=document.getElementById('feeCourse').value;
+  const q=document.getElementById('feeSearch').value.toLowerCase();
+  const res=document.getElementById('feeSearchResults');
+  if(!c || !q) { res.innerHTML=''; return; }
+  
+  const list = DB.students.filter(s=>s.course===c && s.name.toLowerCase().includes(q));
+  res.innerHTML = list.map(s=>`<div style="cursor:pointer; padding:10px; border:1px solid #ccc; margin-bottom:5px;" onclick="selectFeeStudent('${s.id}')"><b>${s.name}</b> (${s.admissionNo})</div>`).join('');
+}
+
+function selectFeeStudent(id){
+  selectedStudent = DB.students.find(s=>s.id===id);
+  document.getElementById('feeSearchResults').innerHTML='';
+  document.getElementById('feeStudentBlock').style.display='block';
+  document.getElementById('fsName').textContent = selectedStudent.name;
+}
+
+async function submitFee(e){
+  e.preventDefault();
+  if(!selectedStudent) return;
+  const heads = {
+    y1Course:Number(document.getElementById('payY1C').value||0), 
+    y1Exam:Number(document.getElementById('payY1E').value||0),
+    y2Course:Number(document.getElementById('payY2C').value||0), 
+    y2Exam:Number(document.getElementById('payY2E').value||0),
+    transport:Number(document.getElementById('payTr').value||0), 
+    otherFee:Number(document.getElementById('payOther').value||0) 
+  };
+  const p = { 
+    student_id: selectedStudent.id, heads,
+    mode:document.getElementById('feeMode').value, 
+    reference:document.getElementById('feeRef').value, 
+    remarks:document.getElementById('feeRemark').value 
+  };
+  
+  const { data, error } = await sb.rpc('submit_fee', { p });
+  if (error) { toast(error.message, 'error'); return; }
+  
+  toast(`Receipt #${data.receipt_no} generated — ₹${data.total}`, 'success');
+  document.getElementById('feeSubmitForm').reset();
+  await refreshState();
+}
+
+/* ===========  DASHBOARD RPC  =========== */
+async function renderDashboard(){
+  const { data:d, error } = await sb.rpc('dashboard_stats');
+  if(error) return;
+  document.getElementById('statStudents').textContent = d.total_students;
+  document.getElementById('statFixed').textContent     = fmt(+d.total_fixed);
+  document.getElementById('statCollected').textContent = fmt(+d.total_paid);
+  document.getElementById('statDue').textContent       = fmt(+d.total_fixed - +d.total_paid);
+}
+</script>
+</body>
+</html>
